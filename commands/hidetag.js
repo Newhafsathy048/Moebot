@@ -19,6 +19,12 @@ module.exports = {
       }
 
       const meta = await sock.groupMetadata(from);
+      
+      if (!meta.participants || meta.participants.length === 0) {
+        await sock.sendMessage(from, { text: '❌ Could not fetch group members.' });
+        return;
+      }
+
       const participants = meta.participants.map((p) => p.id);
       const text = args.join(' ') || '📢';
 
@@ -28,7 +34,7 @@ module.exports = {
     } catch (err) {
       console.error('Hidetag error:', err.message);
       await sock.sendMessage(from, {
-        text: '❌ Could not tag everyone. Make sure the bot is a member of this group.'
+        text: '❌ Could not tag everyone. Make sure the bot is a member of this group and has the necessary permissions.'
       });
     }
   }

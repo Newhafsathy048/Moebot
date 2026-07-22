@@ -26,20 +26,45 @@ module.exports = {
         text: `🎵 *${video.title}*\n⏱️ ${video.timestamp}\n👤 ${video.author.name}\n\n⏳ Downloading audio...`
       });
 
-      const stream = ytdl(video.url, { filter: 'audioonly', quality: 'highestaudio' });
-      const chunks = [];
-      for await (const chunk of stream) chunks.push(chunk);
-      const buffer = Buffer.concat(chunks);
+      try {
+        const stream = ytdl(video.url, { 
+          filter: 'audioonly', 
+          quality: 'highestaudio',
+          requestOptions: {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+          }
+        });
+        
+        const chunks = [];
+        for await (const chunk of stream) {
+          chunks.push(chunk);
+        }
+        const buffer = Buffer.concat(chunks);
 
-      await sock.sendMessage(from, {
-        audio: buffer,
-        mimetype: 'audio/mpeg',
-        fileName: `${video.title}.mp3`
-      });
+        if (buffer.length === 0) {
+          await sock.sendMessage(from, {
+            text: '❌ Downloaded file is empty. The video might be restricted or unavailable.'
+          });
+          return;
+        }
+
+        await sock.sendMessage(from, {
+          audio: buffer,
+          mimetype: 'audio/mpeg',
+          fileName: `${video.title}.mp3`
+        });
+      } catch (downloadErr) {
+        console.error('YouTube download error:', downloadErr.message);
+        await sock.sendMessage(from, {
+          text: '❌ Could not download the audio. The video might be age-restricted, region-locked, or YouTube has changed its protection. Try a different song.'
+        });
+      }
     } catch (err) {
       console.error('Play command error:', err.message);
       await sock.sendMessage(from, {
-        text: '❌ Could not download that track. YouTube frequently changes its site and breaks downloaders — try again later or search for a different song.'
+        text: '❌ Search failed. YouTube frequently changes its site — try again in a moment or search for a different song.'
       });
     }
   }

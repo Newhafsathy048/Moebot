@@ -9,12 +9,23 @@ async function extractFbVideoUrl(link) {
     timeout: 20000
   });
 
-  const hd = html.match(/"browser_native_hd_url":"(.*?)"/);
-  const sd = html.match(/"browser_native_sd_url":"(.*?)"/);
-  const raw = (hd && hd[1]) || (sd && sd[1]);
-  if (!raw) return null;
+  // Try multiple patterns for video URL extraction
+  const patterns = [
+    /"browser_native_hd_url":"(.*?)"/,
+    /"browser_native_sd_url":"(.*?)"/,
+    /"video":{"stream":"(.*?)"/,
+    /"src":"(https:\/\/[^"]*video[^"]*)"/
+  ];
 
-  return raw.replace(/\\u0025/g, '%').replace(/\\\//g, '/').replace(/&amp;/g, '&');
+  for (const pattern of patterns) {
+    const match = html.match(pattern);
+    if (match && match[1]) {
+      const raw = match[1];
+      return raw.replace(/\\u0025/g, '%').replace(/\\\//g, '/').replace(/&amp;/g, '&');
+    }
+  }
+
+  return null;
 }
 
 module.exports = {
@@ -32,13 +43,21 @@ module.exports = {
 
     try {
       const videoUrl = await extractFbVideoUrl(url);
-      if (!videoUrl) throw new Error('No video URL found on page');
+      if (!videoUrl) {
+        await sock.sendMessage(from, {
+          text: '❌ Could not find video URL. The video might be:\n• Private or restricted\n• Deleted\n• From a live stream\n• Not a direct video link'
+        });
+        return;
+      }
 
-      await sock.sendMessage(from, { video: { url: videoUrl } });
+      await sock.sendMessage(from, { 
+        video: { url: videoUrl },
+        caption: '🎬 Facebook video'
+      });
     } catch (err) {
       console.error('Facebook download error:', err.message);
       await sock.sendMessage(from, {
-        text: '❌ Could not download that Facebook video. Make sure the link points to a public video.'
+        text: '❌ Could not download that Facebook video. Make sure:\n• The link points to a public video\n• The video is not age-restricted\n• You have access to the video'
       });
     }
   }

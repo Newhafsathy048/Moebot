@@ -37,20 +37,46 @@ module.exports = {
 
     try {
       const isVideo = !!target.message.videoMessage;
+      
+      if (isVideo) {
+        const duration = target.message.videoMessage?.seconds || 0;
+        if (duration > 8) {
+          await sock.sendMessage(from, {
+            text: '❌ Video is too long. Maximum duration is 8 seconds.'
+          });
+          return;
+        }
+      }
+
       const buffer = await downloadMediaMessage(
         { key: target.key, message: target.message },
         'buffer',
         {}
       );
 
-      const webp = isVideo ? await videoToWebp(buffer) : await imageToWebp(buffer);
-      const finalBuffer = await writeExif(webp, settings.botName, settings.ownerName);
+      if (!buffer || buffer.length === 0) {
+        await sock.sendMessage(from, {
+          text: '❌ Could not download the media. Try again.'
+        });
+        return;
+      }
 
+      const webp = isVideo ? await videoToWebp(buffer) : await imageToWebp(buffer);
+      
+      if (!webp || webp.length === 0) {
+        await sock.sendMessage(from, {
+          text: '❌ Could not convert to sticker format. Try a different image or video.'
+        });
+        return;
+      }
+
+      const finalBuffer = await writeExif(webp, settings.botName, settings.ownerName);
+      
       await sock.sendMessage(from, { sticker: finalBuffer });
     } catch (err) {
-      console.error('Sticker error:', err);
+      console.error('Sticker error:', err.message);
       await sock.sendMessage(from, {
-        text: '❌ Could not create the sticker. Make sure the video is short (under ~8 seconds) and try again.'
+        text: '❌ Could not create the sticker. Make sure:\n• The video is under 8 seconds\n• The image/video format is supported\n• The file size is not too large'
       });
     }
   }

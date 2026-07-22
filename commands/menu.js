@@ -1,5 +1,3 @@
-const path = require('path');
-
 module.exports = {
   name: 'menu',
   aliases: ['help'],
@@ -39,12 +37,9 @@ module.exports = {
       `✉️ Email  : ${settings.email}`;
 
     try {
-      await sock.sendMessage(from, {
-        image: { url: path.join(__dirname, '..', 'assets', 'menu.png') },
-        caption
-      });
+      await sock.sendMessage(from, { text: caption });
     } catch (err) {
-      // Fall back to text-only if the image can't be read for any reason.
+      console.error('Menu error:', err.message);
       await sock.sendMessage(from, { text: caption });
     }
   }
